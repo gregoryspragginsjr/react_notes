@@ -337,4 +337,70 @@ useEffect(() => {
 
 ---
 
+## 14. Custom Hooks
+
+A custom hook is a function that starts with `use` and composes existing React hooks. Extract repeated hook logic into a custom hook when the same pattern appears in multiple components or multiple times in one component.
+
+**Rules:**
+- Must start with `use` — React enforces hook rules on anything prefixed with `use`
+- Can call other hooks internally — that's all a custom hook is
+- Returns whatever the consuming component needs — values, setters, callbacks, refs
+
+**Example — `useCounter`:**
+
+A hook that manages a counter with convenience methods, eliminating repetitive setter logic:
+
+```tsx
+import { useState } from 'react';
+
+interface UseCounterReturn {
+  count: number;
+  increment: () => void;
+  decrement: () => void;
+  reset: () => void;
+  setCount: React.Dispatch<React.SetStateAction<number>>;
+}
+
+export default function useCounter(initialValue: number = 0): UseCounterReturn {
+  const [count, setCount] = useState(initialValue);
+
+  return {
+    count,
+    increment: () => setCount(prev => prev + 1),
+    decrement: () => setCount(prev => prev - 1),
+    reset: () => setCount(initialValue),
+    setCount,
+  };
+}
+
+// Usage
+const { count, increment, decrement, reset } = useCounter(0);
+```
+
+**Example — `useSyncedRef`:**
+
+A hook that keeps a ref in sync with a state value automatically — solves the stale closure problem in long-lived callbacks like `setInterval`:
+
+```tsx
+import { useRef, useEffect } from 'react';
+
+function useSyncedRef<T>(value: T) {
+  const ref = useRef<T>(value);
+
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+
+  return ref;
+}
+
+// Usage — replaces manual ref syncing
+const [activeSlide, setActiveSlide] = useState(0);
+const activeSlideRef = useSyncedRef(activeSlide); // always current inside intervals
+```
+
+**The Vue equivalent:** Composables (`useCounter`, `useFetch` etc.) — same concept, different framework.
+
+---
+
 *This document is a living reference — updated as new concepts are covered in practice.*
