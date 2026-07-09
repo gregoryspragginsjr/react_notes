@@ -403,4 +403,36 @@ const activeSlideRef = useSyncedRef(activeSlide); // always current inside inter
 
 ---
 
+## 15. Stale State in Event Handlers
+
+State values are asynchronous. Reading a state value after calling its setter in the same function always gives the **old value** — the setter hasn't run yet.
+
+```tsx
+// ❌ Wrong — active is stale after setActive, DOM manipulation is one click behind
+if (active.includes(b)) {
+  setActive(prev => prev.filter(item => item !== b));
+} else {
+  setActive(prev => [...prev, b]);
+}
+
+if (active.includes(b)) { // reads pre-update value — always wrong
+  window.setAttribute('style', 'height: 0');
+}
+
+// ✅ Correct — compute next state first, use it consistently
+const isCurrentlyActive = active.includes(b);
+const nextActive = isCurrentlyActive
+  ? active.filter(item => item !== b)
+  : [...active, b];
+
+setActive(nextActive);       // update state
+if (isCurrentlyActive) {     // use pre-computed value — reliable
+  window.setAttribute('style', 'height: 0');
+}
+```
+
+**The rule:** Never read a state value after calling its setter in the same function. Compute what you need from the current value first, then call the setter.
+
+---
+
 *This document is a living reference — updated as new concepts are covered in practice.*
