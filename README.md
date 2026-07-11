@@ -435,4 +435,100 @@ if (isCurrentlyActive) {     // use pre-computed value — reliable
 
 ---
 
+## 16. Production-Ready Fetch Pattern
+
+Native `fetch` does not throw on HTTP errors (404, 500 etc.) — it only rejects on network failure. Always check `res.ok` manually.
+
+```tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+
+interface Post {
+  id: number;
+  title: string;
+}
+
+export default function PostList() {
+  const [data, setData] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('https://api.example.com/posts', {
+      signal: controller.signal,
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error — status: ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        setData(data);
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return; // component unmounted — not a real error
+        setError(err.message);
+      })
+      .finally(() => {
+        setIsLoading(false); // always runs — success or failure
+      });
+
+    return () => controller.abort(); // cancel in-flight request on unmount
+  }, []);
+
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <ul>
+      {data.map(post => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+**async/await equivalent — also valid:**
+
+```tsx
+useEffect(() => {
+  const controller = new AbortController();
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch('https://api.example.com/posts', {
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error(`HTTP error — status: ${res.status}`);
+
+      const data = await res.json();
+      setData(data);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchData(); // can't make useEffect callback itself async — use inner function
+
+  return () => controller.abort();
+}, []);
+```
+
+**Five things interviewers look for:**
+
+- Loading and error state — always handle both
+- `res.ok` check — fetch doesn't throw on 404/500
+- `AbortController` — prevents state updates on unmounted components
+- `.finally()` for loading — runs regardless of success or failure
+- Inner async function — never make the `useEffect` callback itself `async`
+
+---
+
 *This document is a living reference — updated as new concepts are covered in practice.*
